@@ -1,0 +1,131 @@
+open import SDG.Base
+
+module SDG.Taylor
+  (ℝ : Set)
+  (sf : SmoothField ℝ)
+where
+
+open import Algebra.Structures
+open import Data.Empty using (⊥)
+open import Relation.Binary.PropositionalEquality as Eq
+  using (cong; cong₂; subst₂; _≡_)
+open import Data.Product using (_,_; _×_; proj₁; proj₂)
+
+import SDG.Derivative.Definition
+open module Dummy = SDG.Derivative.Definition ℝ sf
+
+open Eq.≡-Reasoning
+open SmoothField sf
+
+module PreTaylor2 where
+
+  2# : ℝ
+  2# = 1# + 1#
+
+  _² : ℝ → ℝ
+  x ² = x * x
+
+  prebinomial-2 : ∀ (ε₀ ε₁ : ℝ) → nils ε₀ → nils ε₁ →
+                   (ε₀ + ε₁)² ≡ 2# * ε₀ * ε₁
+  prebinomial-2 ε₀ ε₁ Δε₀ Δε₁ =
+    begin
+      (ε₀ + ε₁)²
+    ≡⟨ refl ⟩
+      (ε₀ + ε₁) * (ε₀ + ε₁)
+    ≡⟨ proj₂ distrib (ε₀ + ε₁) ε₀ ε₁ ⟩
+      ε₀ * (ε₀ + ε₁) + ε₁ * (ε₀ + ε₁)
+    ≡⟨ cong₂ _+_ (proj₁ distrib ε₀ ε₀ ε₁) (proj₁ distrib ε₁ ε₀ ε₁) ⟩
+      (ε₀ * ε₀ + ε₀ * ε₁) + (ε₁ * ε₀ + ε₁ * ε₁)
+    ≡⟨ cong₂ _+_ (cong (λ p → p + ε₀ * ε₁) Δε₀) (cong (_+_ (ε₁ * ε₀)) Δε₁) ⟩
+      (0# + ε₀ * ε₁) + (ε₁ * ε₀ + 0#)
+    ≡⟨ cong₂ _+_ (proj₁ +-identity (ε₀ * ε₁)) (proj₂ +-identity (ε₁ * ε₀)) ⟩
+      (ε₀ * ε₁) + (ε₁ * ε₀)
+    ≡⟨ cong₂ _+_ refl (*-comm ε₁ ε₀) ⟩
+      (ε₀ * ε₁) + (ε₀ * ε₁)
+    ≡⟨ cong₂ _+_ (sym (proj₁ *-identity (ε₀ * ε₁))) (sym (proj₁ *-identity (ε₀ * ε₁))) ⟩
+      (1# * (ε₀ * ε₁)) + (1# * (ε₀ * ε₁))
+    ≡⟨ sym (proj₂ distrib (ε₀ * ε₁) 1# 1#) ⟩
+      2# * (ε₀ * ε₁)
+    ≡⟨ sym (*-assoc 2# ε₀ ε₁) ⟩
+      2# * ε₀ * ε₁
+    ∎
+
+  pretaylor-2 : ∀ (f : ℝ → ℝ) → ∀ (x ε₀ ε₁ : ℝ) → nils ε₀ → nils ε₁ →
+                f (x + (ε₀ + ε₁)) ≡
+                f x + (ε₀ + ε₁) * ∂ f x + ε₀ * ε₁ * ∂ (∂ f) x
+  pretaylor-2 f x ε₀ ε₁ Δε₀ Δε₁ =
+    begin
+      f (x + (ε₀ + ε₁))
+    ≡⟨ cong f (sym (+-assoc x ε₀ ε₁)) ⟩
+      f (x + ε₀ + ε₁)
+    ≡⟨ kock-lawvere f (x + ε₀) ε₁ Δε₁ ⟩
+      f (x + ε₀) + ε₁ * f' (x + ε₀)
+    ≡⟨ cong (λ p → p + ε₁ * f' (x + ε₀)) (kock-lawvere f x ε₀ Δε₀) ⟩
+      f x + ε₀ * f' x + ε₁ * f' (x + ε₀)
+    ≡⟨ cong (λ p → f x + ε₀ * f' x + ε₁ * p) (kock-lawvere f' x ε₀ Δε₀) ⟩
+      f x + ε₀ * f' x + ε₁ * (f' x + ε₀ * f'' x)
+    ≡⟨ cong (λ p → f x + ε₀ * f' x + p) (proj₁ distrib ε₁ (f' x) (ε₀ * f'' x)) ⟩
+      f x + ε₀ * f' x + (ε₁ * f' x + ε₁ * (ε₀ * f'' x))
+    ≡⟨ cong (λ p → f x + ε₀ * f' x + (ε₁ * f' x + p)) (sym (*-assoc ε₁ ε₀ (f'' x))) ⟩
+      f x + ε₀ * f' x + (ε₁ * f' x + ε₁ * ε₀ * f'' x)
+    ≡⟨ sym (+-assoc (f x + ε₀ * f' x) (ε₁ * f' x) (ε₁ * ε₀ * f'' x)) ⟩
+      f x + ε₀ * f' x + ε₁ * f' x + ε₁ * ε₀ * f'' x
+    ≡⟨ cong (λ p → p + ε₁ * ε₀ * f'' x) (+-assoc (f x) (ε₀ * f' x) (ε₁ * f' x)) ⟩
+      f x + (ε₀ * f' x + ε₁ * f' x) + ε₁ * ε₀ * f'' x
+    ≡⟨ cong (λ p → f x + p + ε₁ * ε₀ * f'' x) (sym (proj₂ distrib (f' x) ε₀ ε₁)) ⟩
+      f x + (ε₀ + ε₁) * f' x + ε₁ * ε₀ * f'' x
+    ≡⟨ cong (λ p → f x + (ε₀ + ε₁) * f' x + p * f'' x) (*-comm ε₁ ε₀) ⟩
+      f x + (ε₀ + ε₁) * f' x + ε₀ * ε₁ * f'' x
+    ∎ where
+    f' : ℝ → ℝ
+    f' = ∂ f
+    f'' : ℝ → ℝ
+    f'' = ∂ (∂ f)
+
+module Taylor2
+  (not-char2 : 1# + 1# ≡ 0# → ⊥)
+  where
+  open PreTaylor2
+
+  1/2 : ℝ
+  1/2 = inv 2# not-char2
+  
+  _/2 : ℝ → ℝ
+  x /2 = 1/2 * x
+  
+  binomial-2 : ∀ (ε₀ ε₁ : ℝ) → nils ε₀ → nils ε₁ →
+                     (ε₀ + ε₁)² /2 ≡ ε₀ * ε₁
+  binomial-2 ε₀ ε₁ Δε₀ Δε₁ =
+    begin
+      (ε₀ + ε₁)² /2
+    ≡⟨ cong _/2 (prebinomial-2 ε₀ ε₁ Δε₀ Δε₁) ⟩
+      (2# * ε₀ * ε₁) /2
+    ≡⟨ refl ⟩
+      1/2 * (2# * ε₀ * ε₁)
+    ≡⟨ sym (*-assoc 1/2 (2# * ε₀) ε₁) ⟩
+      (1/2 * (2# * ε₀)) * ε₁
+    ≡⟨ cong₂ _*_ (sym (*-assoc 1/2 2# ε₀)) refl ⟩
+      (1/2 * 2# * ε₀) * ε₁
+    ≡⟨ cong₂ _*_ (cong₂ _*_ (*-comm 1/2 2#) refl) refl ⟩
+      (2# * 1/2 * ε₀) * ε₁
+    ≡⟨ cong₂ _*_ (cong₂ _*_ (*-inverse not-char2) refl) refl ⟩
+      (1# * ε₀) * ε₁
+    ≡⟨ cong₂ _*_ (proj₁ *-identity ε₀) refl ⟩
+      ε₀ * ε₁
+    ∎
+  
+  taylor-2 : ∀ (f : ℝ → ℝ) → ∀ (x ε₀ ε₁ δ : ℝ) → nils ε₀ → nils ε₁ →
+            δ ≡ ε₀ + ε₁                                            →
+            f (x + δ) ≡ f x + δ * ∂ f x + δ ² /2 * ∂ (∂ f) x
+  taylor-2 f x ε₀ ε₁ δ Δε₀ Δε₁ Δδ =
+    begin
+      f (x + δ)
+    ≡⟨ cong f (cong₂ _+_ refl Δδ) ⟩
+      f (x + (ε₀ + ε₁))
+    ≡⟨ pretaylor-2 f x ε₀ ε₁ Δε₀ Δε₁ ⟩
+      f x + (ε₀ + ε₁) * ∂ f x + ε₀ * ε₁ * ∂ (∂ f) x
+    ≡⟨ cong₂ _+_ refl (cong₂ _*_ (sym (binomial-2 ε₀ ε₁ Δε₀ Δε₁)) refl) ⟩
+      f x + (ε₀ + ε₁) * ∂ f x + (ε₀ + ε₁)² /2 * ∂ (∂ f) x
+    ≡⟨ cong (λ p → f x + p * ∂ f x + p ² /2 * ∂ (∂ f) x) (sym Δδ) ⟩
+      f x + δ * ∂ f x + δ ² /2 * ∂ (∂ f) x
+    ∎

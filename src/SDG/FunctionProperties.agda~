@@ -1,0 +1,97 @@
+open import SDG.Base
+
+module SDG.FunctionProperties
+  (ℝ : Set)
+  (sf : SmoothField ℝ)
+where
+
+open import Algebra.Structures
+open import Relation.Binary.PropositionalEquality as Eq
+  using (cong; cong₂; subst₂; _≡_)
+open import Data.Product using (_,_; _×_; proj₁; proj₂)
+open import Function using (id; const)
+
+import SDG.Derivative.Definition
+import SDG.Derivative.Properties
+import SDG.Integral.Definition
+open module Dummy1 = SDG.Derivative.Definition ℝ sf
+open module Dummy2 = SDG.Derivative.Properties ℝ sf
+open module Dummy3 = SDG.Integral.Definition   ℝ sf
+
+open Eq.≡-Reasoning
+open SmoothField sf
+
+
+-- dx/dx = 1
+∂-id : ∀ (x : ℝ) → ∂ id x ≡ const 1# x
+∂-id = ∂-computation id (const 1#) computation where
+  computation : ∀ (x ε : ℝ) → nils ε → x + ε ≡ x + ε * 1#
+  computation x ε Δε = cong (λ p → x + p) (sym (proj₂ *-identity ε))
+
+-- dc/dx = 0
+∂-const : ∀ (c x : ℝ) → ∂ (const c) x ≡ const 0# x
+∂-const c = ∂-computation (const c) (const 0#) computation where
+  computation : ∀ (x ε : ℝ) → nils ε → c ≡ c + ε * 0#
+  computation x ε Δε = begin
+      c
+    ≡⟨ sym (proj₂ +-identity c) ⟩
+      c + 0#
+    ≡⟨ cong (λ p → c + p) (sym (proj₂ zero ε)) ⟩
+      c + ε * 0#
+    ∎
+
+-- ∫ c dx = c*x
+∫-const : ∀ (c : ℝ) → Integrable (const c)
+∫-const c = record { ∫          = ∫from_to
+                   ; ∫-additive = ∫-const-additive
+                   ; ∫-smooth   = ∫-const-smooth
+                   } where
+  ∫from_to : ℝ → ℝ → ℝ
+  ∫from x to y = y * c - (x * c)
+  ∫-const-additive : ∀ (x y z : ℝ) →
+                   ∫from x to z ≡ ∫from x to y + ∫from y to z
+  ∫-const-additive x y z = begin
+      ∫from x to z
+    ≡⟨ refl ⟩
+      z * c - (x * c)
+    ≡⟨ sym (proj₂ +-identity (z * c - (x * c))) ⟩
+      (z * c - (x * c)) + 0#
+    ≡⟨ cong (λ p → (z * c - (x * c)) + p) (sym (proj₂ +-inverse (y * c))) ⟩
+      (z * c - (x * c)) + (y * c - (y * c))
+    ≡⟨ cong (λ p → z * c - (x * c) + p) (+-comm (y * c) (~ (y * c))) ⟩
+      (z * c - (x * c)) + (~ (y * c) + y * c)
+    ≡⟨ sym (+-assoc (z * c - (x * c)) (~ (y * c)) (y * c)) ⟩
+      (z * c - (x * c) - (y * c)) + y * c
+    ≡⟨ cong (λ p → p + y * c) (+-assoc (z * c) (~ (x * c)) (~ (y * c))) ⟩
+      (z * c + (~ (x * c) - (y * c))) + y * c
+    ≡⟨ cong (λ p → (z * c + p) + y * c) (+-comm (~ (x * c)) (~ (y * c))) ⟩
+      (z * c + (~ (y * c) - (x * c))) + y * c
+    ≡⟨ cong (λ p → p + y * c) (sym (+-assoc (z * c) (~ (y * c)) (~ (x * c)))) ⟩
+      (z * c - (y * c) - (x * c)) + y * c
+    ≡⟨ +-assoc (z * c - (y * c)) (~ (x * c)) (y * c) ⟩
+      (z * c - (y * c)) + (~ (x * c) + y * c)
+    ≡⟨ cong (λ p → z * c - (y * c) + p) (+-comm (~ (x * c)) (y * c)) ⟩
+      (z * c - (y * c)) + (y * c - (x * c))
+    ≡⟨ cong₂ _+_ refl refl ⟩
+      ∫from y to z + ∫from x to y
+    ≡⟨ +-comm (∫from y to z) (∫from x to y) ⟩
+      ∫from x to y + ∫from y to z
+    ∎
+  ∫-const-smooth : ∀ (x ε : ℝ) → nils ε → ∫from x to (x + ε) ≡ ε * c 
+  ∫-const-smooth x ε Δε = begin
+      ∫from x to (x + ε)
+    ≡⟨ refl ⟩
+      (x + ε) * c - (x * c)
+    ≡⟨ cong (λ p → p - (x * c)) (proj₂ distrib c x ε) ⟩
+      (x * c + ε * c) - (x * c)
+    ≡⟨ +-assoc (x * c) (ε * c) (~ (x * c)) ⟩
+      x * c + (ε * c - (x * c))
+    ≡⟨ cong (λ p → x * c + p) (+-comm (ε * c) (~ (x * c))) ⟩
+      x * c + (~ (x * c) + ε * c)
+    ≡⟨ sym (+-assoc (x * c) (~ (x * c)) (ε * c)) ⟩
+      x * c - (x * c) + ε * c
+    ≡⟨ cong (λ p → p + ε * c) (proj₂ +-inverse (x * c)) ⟩
+      0# + ε * c
+    ≡⟨ proj₁ +-identity (ε * c) ⟩
+       ε * c
+    ∎
